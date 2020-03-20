@@ -1,0 +1,47 @@
+'user strict';
+const passport = require('passport');
+const User = require('../models/user');
+const FacebookStrategy = require('passport-facebook').Strategy;
+const secret = require('../secret/secretFile');
+passport.serializeUser((user, done) => { //dia amik data drpde user tuh pakai user
+    done(null, user.id); // then dia akan amik user id and save dalam session
+});
+
+passport.deserializeUser((id, done) => {
+    User.findById(id, (err, user) => { //sini dia akan compare id yg ada dalam session match ke tak, kalau match dia store dalam user object tu
+        done(err, user);
+    });
+});
+
+passport.use(new FacebookStrategy({ //nie bkn amik drpde view local tuh . nie nama sign up memand dia sendiri punya
+ clientID: '831833233956077',
+ clientSecret: 'f1563f2f8892a7ab40a740c418984011',
+ profileFields: ['email', 'displayName', 'photos'],
+ callbackURL: 'http://localhost:3000/auth/facebook/callback',
+ passReqToCallback: true
+
+}, (req, token, refreshToken, profile, done) => {
+    
+    User.findOne({facebook:profile.id}, (err, user) => {
+       if(err){
+           return done(err);
+       }
+        
+       if(user){
+        return done(null, user);
+    }else{
+        const newUser = new User();
+        newUser.facebook = profile.id;
+        newUser.fullname = profile.displayName;
+        newUser.username = profile.displayName;
+        newUser.email = profile._json.email;
+        newUser.userImage = 'https://graph.facebook.com/'+profile.id+'/picture?type=large';
+        newUser.fbTokens.push({token:token});
+        
+        newUser.save((err) => {
+            return done(null, newUser);
+        })
+    }
+})
+}));
+
